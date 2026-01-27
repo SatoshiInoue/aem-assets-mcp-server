@@ -1,0 +1,20 @@
+# Google Cloud Configuration
+project_id = "your-gcp-project-id"
+region     = "us-central1"
+
+# Service Configuration
+service_name           = "aem-assets-mcp-server"
+artifact_registry_name = "aem-mcp-images"
+image_name             = "aem-mcp-server"
+image_tag              = "latest"
+
+# Scaling Configuration
+min_instances = 0
+max_instances = 10
+cpu_limit     = "1"
+memory_limit  = "512Mi"
+
+# AEM Configuration
+aem_base_url      = "https://author-p12345-e67890.adobeaemcloud.com"
+aem_client_id     = "your_client_id_here"
+aem_client_secret = "your_client_secret_here"
