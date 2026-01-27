@@ -23,6 +23,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
+logger = logging.getLogger(__name__)
+
 # Validate required environment variables
 REQUIRED_ENV_VARS = [
     "AEM_BASE_URL",
@@ -42,13 +44,24 @@ async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     global aem_client
     
-    # Initialize AEM client with OAuth Server-to-Server credentials
+    # Initialize AEM client with both OAuth and JWT auth
+    service_account_json = os.getenv("AEM_SERVICE_ACCOUNT_JSON")
+    
     config = AEMConfig(
         base_url=os.getenv("AEM_BASE_URL"),
         client_id=os.getenv("AEM_CLIENT_ID"),
         client_secret=os.getenv("AEM_CLIENT_SECRET"),
+        service_account_json_path=service_account_json,
     )
     aem_client = AEMAssetsClient(config)
+    
+    # Log authentication methods available
+    if service_account_json and os.path.exists(service_account_json):
+        logger.info("✅ JWT Service Account auth available (for /api/assets)")
+    else:
+        logger.warning("⚠️  No service account JSON - classic API (/api/assets) will use fallback")
+    
+    logger.info("✅ OAuth Server-to-Server auth available (for /adobe/* endpoints)")
     
     yield
     

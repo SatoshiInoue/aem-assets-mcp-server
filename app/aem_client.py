@@ -1,11 +1,12 @@
-"""AEM Assets API Client with OAuth Server-to-Server Authentication"""
+"""AEM Assets API Client with OAuth Server-to-Server and JWT Service Account Authentication"""
 
 import httpx
 from typing import List, Dict, Any, Optional
 from datetime import datetime, timedelta
 import logging
+import os
 from app.models import Asset, Folder, BulkUpdateResult
-from app.constants import AEM_API_ENDPOINT, AEM_FOLDERS_ENDPOINT, ADOBE_IMS_TOKEN_ENDPOINT, AEM_SCOPES
+from app.constants import AEM_API_ENDPOINT, AEM_FOLDERS_ENDPOINT, AEM_CLASSIC_API_ENDPOINT, ADOBE_IMS_TOKEN_ENDPOINT, AEM_SCOPES
 
 logger = logging.getLogger(__name__)
 
@@ -17,14 +18,17 @@ class AEMConfig:
         base_url: str,
         client_id: str,
         client_secret: str,
+        service_account_json_path: Optional[str] = None,
     ):
         self.base_url = base_url.rstrip('/')
         self.api_endpoint = AEM_API_ENDPOINT
         self.folders_endpoint = AEM_FOLDERS_ENDPOINT
+        self.classic_api_endpoint = AEM_CLASSIC_API_ENDPOINT
         self.client_id = client_id
         self.client_secret = client_secret
         self.scopes = AEM_SCOPES
         self.ims_token_endpoint = ADOBE_IMS_TOKEN_ENDPOINT
+        self.service_account_json_path = service_account_json_path
 
 
 class AEMAssetsClient:
@@ -36,10 +40,22 @@ class AEMAssetsClient:
         self.token_expires_at: Optional[datetime] = None
         
         self.client = httpx.AsyncClient(timeout=30.0)
+        
+        # JWT Service Account auth (for classic API)
+        self.jwt_auth = None
+        if config.service_account_json_path and os.path.exists(config.service_account_json_path):
+            try:
+                from app.jwt_auth import JWTServiceAccountAuth
+                self.jwt_auth = JWTServiceAccountAuth(config.service_account_json_path)
+                logger.info("JWT Service Account authentication initialized for classic API")
+            except Exception as e:
+                logger.warning(f"Failed to initialize JWT auth: {e}. Classic API will not be available.")
 
     async def close(self):
         """Close the HTTP client"""
         await self.client.aclose()
+        if self.jwt_auth:
+            await self.jwt_auth.close()
 
     async def _get_access_token(self) -> str:
         """
@@ -217,8 +233,164 @@ class AEMAssetsClient:
         return await self.list_assets(search_query=query, limit=limit)
 
     async def get_assets_by_folder(self, folder_path: str) -> List[Asset]:
-        """Get assets by folder path"""
-        return await self.list_assets(path=folder_path)
+        """
+        Get assets by folder path.
+        
+        Strategy: Try classic API first, fall back to folders API if 403.
+        """
+        try:
+            # Try classic API first (more comprehensive)
+            return await self._get_assets_classic_api(folder_path)
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code == 403:
+                logger.warning(f"Classic API returned 403, falling back to folders API")
+                # Fall back to folders API which lists children
+                return await self._get_assets_via_folders_api(folder_path)
+            else:
+                raise
+    
+    async def _get_assets_classic_api(self, folder_path: str) -> List[Asset]:
+        """
+        Get assets using classic Assets HTTP API (/api/assets).
+        Uses JWT Service Account authentication.
+        
+        Note: Classic API expects full repository path starting from root.
+        Example: /content/dam/folder (not just /folder)
+        
+        Reference: https://experienceleague.adobe.com/en/docs/experience-manager-cloud-service/content/assets/admin/mac-api-assets
+        """
+        if not self.jwt_auth:
+            raise Exception("JWT Service Account authentication not configured. Please provide service_account_json_path.")
+        
+        logger.debug(f"Classic API request for folder_path: {folder_path}")
+        
+        # Classic API implicitly assumes /content/dam as the root
+        # Strip /content/dam prefix if present
+        if folder_path.startswith("/content/dam/"):
+            relative_path = folder_path[len("/content/dam/"):]
+        elif folder_path.startswith("/content/dam"):
+            relative_path = folder_path[len("/content/dam"):]
+        elif folder_path.startswith("/"):
+            relative_path = folder_path[1:]
+        else:
+            relative_path = folder_path
+        
+        # Clean up the relative path
+        relative_path = relative_path.strip("/")
+        
+        # Construct the classic API endpoint
+        if not relative_path:
+            # Root folder: /api/assets.json
+            endpoint = ".json"
+        else:
+            # Specific folder: /api/assets/{path}.json
+            endpoint = f"/{relative_path}.json"
+        
+        # Build full URL with classic API endpoint
+        url = f"{self.config.base_url}{self.config.classic_api_endpoint}{endpoint}"
+        
+        logger.info(f"Classic API path transformation: '{folder_path}' → '{url}'")
+        
+        # Get JWT-based access token
+        access_token = await self.jwt_auth.get_access_token()
+        
+        # Make request
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        
+        logger.debug(f"Fetching assets from classic API: {url}")
+        
+        response = await self.client.get(url, headers=headers)
+        response.raise_for_status()
+        
+        data = response.json()
+        
+        # Classic API returns Siren format with 'entities' array
+        entities = data.get("entities", [])
+        
+        logger.debug(f"Found {len(entities)} entities in folder")
+        
+        # Debug: Log what we found
+        for entity in entities:
+            entity_class = entity.get("class", [])
+            entity_name = entity.get("properties", {}).get("name", "unknown")
+            logger.debug(f"  Entity '{entity_name}': class={entity_class}")
+        
+        # Filter for assets only (not folders)
+        assets = []
+        for entity in entities:
+            entity_class = entity.get("class", [])
+            # Check if it's an asset (not a folder)
+            # Folders have class ["assets/folder"], assets should have ["assets/asset"]
+            if "assets/asset" in entity_class:
+                # Get properties
+                props = entity.get("properties", {})
+                
+                # Map to our Asset model
+                assets.append(Asset(
+                    id=props.get("id", ""),
+                    path=props.get("path", ""),
+                    name=props.get("name", ""),
+                    title=props.get("title") or props.get("dc:title") or props.get("jcr:title"),
+                    metadata=props,
+                    asset_type=props.get("type"),
+                    mime_type=props.get("type"),
+                    published=props.get("published", False),
+                    created_by=props.get("createdBy") or props.get("dc:creator"),
+                    created_at=props.get("created") or props.get("jcr:created"),
+                    modified_at=props.get("modified") or props.get("jcr:lastModified"),
+                ))
+        
+        logger.info(f"Retrieved {len(assets)} assets (out of {len(entities)} total entities) from folder {folder_path} via classic API")
+        return assets
+    
+    async def _get_assets_via_folders_api(self, folder_path: str) -> List[Asset]:
+        """
+        Get assets using Folders API as fallback when classic API has no permissions.
+        The folders API returns children which can include both folders and assets.
+        """
+        try:
+            response = await self._make_request(
+                "GET",
+                "",
+                use_folders_api=True,
+                params={"path": folder_path}
+            )
+            data = response.json()
+            
+            children = data.get("children", [])
+            
+            logger.debug(f"Found {len(children)} children via folders API")
+            
+            # Filter for assets (children that are not folders)
+            assets = []
+            for child in children:
+                # If it has assetId, it's likely an asset (folders have folderId)
+                if "assetId" in child or "asset" in child.get("type", "").lower():
+                    # Map folder API response to Asset model
+                    # Note: Folders API has limited asset info, might need additional calls
+                    assets.append(Asset(
+                        id=child.get("assetId", child.get("id", "")),
+                        path=child.get("path", ""),
+                        name=child.get("name", ""),
+                        title=child.get("title"),
+                        metadata=child,
+                        asset_type=child.get("type"),
+                        mime_type=child.get("mimeType"),
+                        published=child.get("published", False),
+                        created_by=child.get("createdBy"),
+                        created_at=child.get("createdAt"),
+                        modified_at=child.get("modifiedAt"),
+                    ))
+            
+            logger.info(f"Retrieved {len(assets)} assets from folder {folder_path} via folders API")
+            return assets
+            
+        except Exception as e:
+            logger.error(f"Error listing assets via folders API: {str(e)}")
+            raise Exception(f"Failed to list assets in folder: {str(e)}")
 
     async def get_published_assets(self, limit: int = 100) -> List[Asset]:
         """Get published assets"""

@@ -1,6 +1,10 @@
 """Global constants for AEM Assets MCP Server"""
 
 # Adobe API Endpoints (these are part of Adobe's API specification and don't change)
+# Classic Assets HTTP API - stable, public API for folder listing
+AEM_CLASSIC_API_ENDPOINT = "/api/assets"
+
+# Newer OpenAPI endpoints - for other operations
 AEM_API_ENDPOINT = "/adobe/assets"
 AEM_FOLDERS_ENDPOINT = "/adobe/folders"
 

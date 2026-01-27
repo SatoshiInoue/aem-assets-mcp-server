@@ -13,3 +13,7 @@ pydantic-settings==2.7.1
 
 # CORS
 python-multipart==0.0.20
+
+# JWT & Cryptography (for classic API service account auth)
+PyJWT==2.8.0
+cryptography==42.0.5
