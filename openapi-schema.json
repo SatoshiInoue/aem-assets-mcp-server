@@ -40,7 +40,7 @@
                   },
                   "arguments": {
                     "type": "object",
-                    "description": "Tool-specific arguments. Use path for folders, query for search, folderPath for assets, metadata for updates, createdBy for creator filter, assetId for details.",
+                    "description": "Tool-specific arguments. Use path for folders, query for search, folderPath for listing/bulk updates, assetId for single asset operations, metadata for updates, createdBy for creator filter.",
                     "properties": {
                       "path": {
                         "type": "string",
@@ -52,11 +52,11 @@
                       },
                       "folderPath": {
                         "type": "string",
-                        "description": "Folder path (for list_assets_by_folder and bulk_update_metadata)"
+                        "description": "Folder path (for list_assets_by_folder and bulk_update_metadata for folder updates)"
                       },
                       "metadata": {
                         "type": "object",
-                        "description": "Metadata key-value pairs (for bulk_update_metadata)",
+                        "description": "Metadata key-value pairs (for bulk_update_metadata). Use with either assetId for single asset or folderPath for bulk updates.",
                         "additionalProperties": true
                       },
                       "createdBy": {
@@ -65,7 +65,7 @@
                       },
                       "assetId": {
                         "type": "string",
-                        "description": "Asset ID (for get_asset_details)"
+                        "description": "Asset path (for get_asset_details and bulk_update_metadata for single asset). Example: /content/dam/folder/image.jpg"
                       },
                       "limit": {
                         "type": "integer",

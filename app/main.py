@@ -132,15 +132,27 @@ async def call_tool(request: ToolRequest):
             return ToolResponse(result=[asset.model_dump() for asset in result])
 
         elif tool == "bulk_update_metadata":
+            # Check if it's a single asset or folder
+            asset_id = args.get("assetId")
             folder_path = args.get("folderPath")
             metadata = args.get("metadata")
-            if not folder_path or not metadata:
+            
+            if not metadata:
+                raise HTTPException(status_code=400, detail="metadata parameter is required")
+            
+            if asset_id:
+                # Single asset update
+                result = await aem_client.update_asset_metadata(asset_id, metadata)
+                return ToolResponse(result=result.model_dump())
+            elif folder_path:
+                # Bulk folder update
+                result = await aem_client.bulk_update_folder_metadata(folder_path, metadata)
+                return ToolResponse(result=result.model_dump())
+            else:
                 raise HTTPException(
                     status_code=400,
-                    detail="folderPath and metadata parameters are required"
+                    detail="Either assetId or folderPath parameter is required"
                 )
-            result = await aem_client.bulk_update_folder_metadata(folder_path, metadata)
-            return ToolResponse(result=result.model_dump())
 
         elif tool == "list_assets_by_creator":
             created_by = args.get("createdBy")

@@ -402,18 +402,102 @@ class AEMAssetsClient:
 
     async def update_asset_metadata(
         self,
-        asset_id: str,
+        asset_path: str,
         metadata: Dict[str, Any]
     ) -> Asset:
-        """Update asset metadata"""
+        """
+        Update asset metadata using the classic Assets HTTP API.
+        
+        Args:
+            asset_path: Full asset path (e.g., /content/dam/folder/image.jpg)
+            metadata: Dictionary of metadata key-value pairs to update
+        
+        Returns:
+            Updated Asset object
+        """
+        if not self.jwt_auth:
+            raise Exception("JWT Service Account authentication not configured. Please provide service_account_json_path.")
+        
+        logger.debug(f"Updating metadata for asset: {asset_path}")
+        
+        # Strip /content/dam prefix if present (classic API assumes it)
+        if asset_path.startswith("/content/dam/"):
+            relative_path = asset_path[len("/content/dam/"):]
+        elif asset_path.startswith("/content/dam"):
+            relative_path = asset_path[len("/content/dam"):]
+        elif asset_path.startswith("/"):
+            relative_path = asset_path[1:]
+        else:
+            relative_path = asset_path
+        
+        # Clean up the relative path
+        relative_path = relative_path.strip("/")
+        
+        if not relative_path:
+            raise ValueError("Asset path cannot be empty")
+        
+        # Construct the classic API endpoint (without .json extension for PUT)
+        endpoint = f"/{relative_path}"
+        url = f"{self.config.base_url}{self.config.classic_api_endpoint}{endpoint}"
+        
+        logger.info(f"Updating metadata via classic API: '{asset_path}' → '{url}'")
+        
+        # Map common field names to Dublin Core (dc:) namespace
+        field_mapping = {
+            "title": "dc:title",
+            "description": "dc:description",
+            "subject": "dc:subject",
+            "creator": "dc:creator",
+            "language": "dc:language",
+            "keywords": "dc:keywords",
+        }
+        
+        # Transform metadata keys to use proper namespaces
+        mapped_metadata = {}
+        for key, value in metadata.items():
+            # If key is in our mapping and doesn't already have a namespace prefix, map it
+            if key in field_mapping and ":" not in key:
+                mapped_key = field_mapping[key]
+            else:
+                mapped_key = key
+            mapped_metadata[mapped_key] = value
+        
+        logger.debug(f"Mapped metadata: {metadata} → {mapped_metadata}")
+        
+        # Get JWT-based access token
+        access_token = await self.jwt_auth.get_access_token()
+        
+        # Headers per Adobe documentation
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        
+        # Payload format per Adobe documentation:
+        # PUT /api/assets/myfolder/myAsset.png -H"Content-Type: application/json" 
+        # -d '{"class":"asset", "properties":{"dc:title":"My Asset"}}'
+        payload = {
+            "class": "asset",
+            "properties": mapped_metadata
+        }
+        
+        logger.debug(f"Updating metadata with payload: {payload}")
+        
         try:
-            response = await self._make_request(
-                "PATCH",
-                f"/{asset_id}",
-                json={"metadata": metadata}
-            )
-            return self._map_asset(response.json())
+            # Use PUT as per Adobe documentation
+            response = await self.client.put(url, headers=headers, json=payload)
+            response.raise_for_status()
+            
+            logger.info(f"Successfully updated metadata for {asset_path}")
+            
+            # Fetch the updated asset to return
+            return await self.get_asset(asset_path)
+            
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error updating asset metadata: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Failed to update asset metadata: {e.response.status_code} {e.response.reason_phrase}")
         except Exception as e:
+            logger.error(f"Error updating asset metadata: {str(e)}")
             raise Exception(f"Failed to update asset metadata: {str(e)}")
 
     async def bulk_update_folder_metadata(
@@ -429,25 +513,113 @@ class AEMAssetsClient:
 
         for asset in assets:
             try:
-                await self.update_asset_metadata(asset.id, metadata)
+                await self.update_asset_metadata(asset.path, metadata)  # Use path instead of id
                 updated += 1
-                results.append({"assetId": asset.id, "status": "success"})
+                results.append({"assetPath": asset.path, "status": "success"})
             except Exception as e:
                 failed += 1
                 results.append({
-                    "assetId": asset.id,
+                    "assetPath": asset.path,
                     "status": "failed",
                     "error": str(e)
                 })
 
         return BulkUpdateResult(updated=updated, failed=failed, results=results)
 
-    async def get_asset(self, asset_id: str) -> Asset:
-        """Get asset details by ID"""
+    async def get_asset(self, asset_path: str) -> Asset:
+        """
+        Get asset details by path using the classic Assets HTTP API.
+        
+        Args:
+            asset_path: Full asset path (e.g., /content/dam/folder/image.jpg)
+        
+        Returns:
+            Asset object with full details
+        """
+        if not self.jwt_auth:
+            raise Exception("JWT Service Account authentication not configured. Please provide service_account_json_path.")
+        
+        logger.debug(f"Getting asset details for: {asset_path}")
+        
+        # Strip /content/dam prefix if present (classic API assumes it)
+        if asset_path.startswith("/content/dam/"):
+            relative_path = asset_path[len("/content/dam/"):]
+        elif asset_path.startswith("/content/dam"):
+            relative_path = asset_path[len("/content/dam"):]
+        elif asset_path.startswith("/"):
+            relative_path = asset_path[1:]
+        else:
+            relative_path = asset_path
+        
+        # Clean up the relative path
+        relative_path = relative_path.strip("/")
+        
+        # Construct the classic API endpoint
+        if not relative_path:
+            raise ValueError("Asset path cannot be empty")
+        
+        endpoint = f"/{relative_path}.json"
+        url = f"{self.config.base_url}{self.config.classic_api_endpoint}{endpoint}"
+        
+        logger.info(f"Classic API path transformation: '{asset_path}' → '{url}'")
+        
+        # Get JWT-based access token
+        access_token = await self.jwt_auth.get_access_token()
+        
+        # Make request
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json",
+        }
+        
         try:
-            response = await self._make_request("GET", f"/{asset_id}")
-            return self._map_asset(response.json())
+            response = await self.client.get(url, headers=headers)
+            response.raise_for_status()
+            
+            data = response.json()
+            
+            # Classic API returns Siren format with 'properties' for single asset
+            props = data.get("properties", {})
+            
+            if not props:
+                raise ValueError(f"No asset found at path: {asset_path}")
+            
+            # Extract full metadata - the classic API includes all metadata fields in properties
+            # Fields like predictedTags, autogen:*, Smart Color Tags, etc. should be here
+            # Create a clean metadata dict with all available fields
+            metadata = {}
+            
+            # Copy all properties to metadata
+            for key, value in props.items():
+                metadata[key] = value
+            
+            logger.debug(f"Extracted {len(metadata)} metadata fields from asset")
+            if logger.isEnabledFor(logging.DEBUG):
+                logger.debug(f"Available metadata keys: {list(metadata.keys())}")
+            
+            # Map to our Asset model
+            asset = Asset(
+                id=props.get("id", ""),
+                path=asset_path,  # Use the original path
+                name=props.get("name", ""),
+                title=props.get("title") or props.get("dc:title") or props.get("jcr:title"),
+                metadata=metadata,  # Full metadata including predictedTags, autogen:*, etc.
+                asset_type=props.get("type"),
+                mime_type=props.get("type"),
+                published=props.get("published", False),
+                created_by=props.get("createdBy") or props.get("dc:creator"),
+                created_at=props.get("created") or props.get("jcr:created"),
+                modified_at=props.get("modified") or props.get("jcr:lastModified"),
+            )
+            
+            logger.info(f"Retrieved asset details with {len(metadata)} metadata fields for {asset_path}")
+            return asset
+            
+        except httpx.HTTPStatusError as e:
+            logger.error(f"HTTP error getting asset: {e.response.status_code} - {e.response.text}")
+            raise Exception(f"Failed to get asset: {e.response.status_code} {e.response.reason_phrase}")
         except Exception as e:
+            logger.error(f"Error getting asset details: {str(e)}")
             raise Exception(f"Failed to get asset: {str(e)}")
 
     def _map_asset(self, item: Dict[str, Any]) -> Asset:
