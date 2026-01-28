@@ -1,10 +1,7 @@
 name: Deploy to Google Cloud Run
 
 on:
-  push:
-    branches:
-      - main
-  workflow_dispatch:
+  workflow_dispatch:  # Manual trigger only - no auto-deploy on push
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -57,8 +54,8 @@ jobs:
             --platform managed \
             --region ${{ env.REGION }} \
             --allow-unauthenticated \
-            --set-env-vars="AEM_BASE_URL=${{ secrets.AEM_BASE_URL }},AEM_API_ENDPOINT=${{ secrets.AEM_API_ENDPOINT }},AEM_CLIENT_ID=${{ secrets.AEM_CLIENT_ID }},AEM_SCOPES=${{ secrets.AEM_SCOPES }},ADOBE_IMS_TOKEN_ENDPOINT=https://ims-na1.adobelogin.com/ims/token/v3" \
-            --set-secrets="AEM_CLIENT_SECRET=aem-client-secret:latest" \
+            --set-env-vars="AEM_BASE_URL=${{ secrets.AEM_BASE_URL }},AEM_CLIENT_ID=${{ secrets.AEM_CLIENT_ID }}" \
+            --set-secrets="AEM_CLIENT_SECRET=aem-client-secret:latest,AEM_SERVICE_ACCOUNT_JSON=aem-service-account-json:latest" \
             --min-instances=0 \
             --max-instances=10 \
             --cpu=1 \

@@ -65,16 +65,22 @@ gcloud artifacts repositories create aem-mcp-images \
 ### Step 3: Create Secrets in Secret Manager
 
 ```bash
-# Create AEM Access Token secret
-echo -n "your_aem_access_token" | gcloud secrets create aem-access-token \
+# Create AEM Client Secret (for OAuth S2S authentication)
+echo -n "your_aem_client_secret" | gcloud secrets create aem-client-secret \
   --data-file=- \
   --replication-policy=automatic
 
-# Create AEM Client ID secret
-echo -n "your_aem_client_id" | gcloud secrets create aem-client-id \
-  --data-file=- \
+# Create AEM Service Account JSON (for JWT authentication with classic API)
+# This is the entire JSON file content from Adobe Developer Console
+gcloud secrets create aem-service-account-json \
+  --data-file=./service-account.json \
   --replication-policy=automatic
 ```
+
+**Important**: Never commit `service-account.json` to Git. It contains private keys and should only exist:
+- Locally (gitignored)
+- In GitHub Secrets (for CI/CD)
+- In GCP Secret Manager (for Cloud Run runtime)
 
 ### Step 4: Set Up Workload Identity Federation
 
@@ -130,19 +136,29 @@ Save this output - you'll need it for GitHub Secrets.
 
 ### Step 5: Configure GitHub Secrets
 
-Go to your GitHub repository → Settings → Secrets and variables → Actions
+Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
 
 Add these secrets:
 
-| Secret Name | Value |
-|-------------|-------|
-| `GCP_PROJECT_ID` | Your GCP project ID |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Output from Step 4 |
-| `GCP_SERVICE_ACCOUNT` | `github-actions@YOUR_PROJECT_ID.iam.gserviceaccount.com` |
-| `AEM_BASE_URL` | Your AEM base URL |
-| `AEM_ACCESS_TOKEN` | Your AEM access token |
-| `AEM_ORG_ID` | Your AEM organization ID |
-| `AEM_CLIENT_ID` | Your AEM client ID |
+| Secret Name | Value | Example |
+|-------------|-------|---------|
+| `GCP_PROJECT_ID` | Your GCP project ID | `my-project-123456` |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | Output from Step 4 | `projects/123.../locations/global/...` |
+| `GCP_SERVICE_ACCOUNT` | Service account email | `github-actions@my-project.iam.gserviceaccount.com` |
+| `AEM_BASE_URL` | Your AEM instance URL (without trailing slash) | `https://author-p12345-e67890.adobeaemcloud.com` |
+| `AEM_CLIENT_ID` | OAuth S2S Client ID from Adobe Developer Console | `abc123...` |
+| `AEM_SERVICE_ACCOUNT_JSON` | **Entire contents** of service-account.json file | `{"ok":true,"integration":{...}}` |
+
+**How to add AEM_SERVICE_ACCOUNT_JSON**:
+```bash
+# Copy the entire JSON content to clipboard
+cat service-account.json | pbcopy  # macOS
+# Or just copy the file contents manually
+
+# Then paste into GitHub Secrets > New secret
+# Name: AEM_SERVICE_ACCOUNT_JSON
+# Value: <paste the entire JSON>
+```
 
 ### Step 6: Deploy
 
@@ -296,14 +312,16 @@ gcloud run deploy aem-assets-mcp-server \
   --platform managed \
   --region ${REGION} \
   --allow-unauthenticated \
-  --set-env-vars="AEM_BASE_URL=https://your-aem.com/api/v1,AEM_ORG_ID=your_org_id@AdobeOrg" \
-  --set-secrets="AEM_ACCESS_TOKEN=aem-access-token:latest,AEM_CLIENT_ID=aem-client-id:latest" \
+  --set-env-vars="AEM_BASE_URL=https://author-p12345-e67890.adobeaemcloud.com,AEM_CLIENT_ID=your_client_id" \
+  --set-secrets="AEM_CLIENT_SECRET=aem-client-secret:latest,AEM_SERVICE_ACCOUNT_JSON=aem-service-account-json:latest" \
   --min-instances=0 \
   --max-instances=10 \
   --cpu=1 \
   --memory=512Mi \
   --timeout=60
 ```
+
+**Note**: Both `AEM_CLIENT_SECRET` and `AEM_SERVICE_ACCOUNT_JSON` must be stored in Secret Manager and referenced as secrets (not environment variables) to keep credentials secure.
 
 ### Step 3: Get Service URL
 
