@@ -1,6 +1,6 @@
 # Google Cloud Configuration
 project_id = "your-gcp-project-id"
-region     = "us-central1"
+region     = "asia-northeast1"  # Tokyo - change to your preferred region
 
 # Service Configuration
 service_name           = "aem-assets-mcp-server"

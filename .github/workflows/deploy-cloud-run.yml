@@ -5,7 +5,7 @@ on:
 
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-  REGION: us-central1
+  REGION: ${{ secrets.GCP_REGION }}  # Configurable via GitHub Secrets
   SERVICE_NAME: aem-assets-mcp-server
   REGISTRY_NAME: aem-mcp-images
   IMAGE_NAME: aem-mcp-server

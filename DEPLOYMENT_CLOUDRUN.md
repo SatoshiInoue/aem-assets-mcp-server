@@ -143,6 +143,7 @@ Add these secrets:
 | Secret Name | Value | Example |
 |-------------|-------|---------|
 | `GCP_PROJECT_ID` | Your GCP project ID | `my-project-123456` |
+| `GCP_REGION` | Cloud Run region | `asia-northeast1` or `us-central1` |
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | Output from Step 4 | `projects/123.../locations/global/...` |
 | `GCP_SERVICE_ACCOUNT` | Service account email | `github-actions@my-project.iam.gserviceaccount.com` |
 | `AEM_BASE_URL` | Your AEM instance URL (without trailing slash) | `https://author-p12345-e67890.adobeaemcloud.com` |

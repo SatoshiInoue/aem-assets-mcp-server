@@ -277,7 +277,18 @@ Add these secrets in order:
 - Value: Your GCP project ID (e.g., `my-project-123456`)
 - Click **Add secret**
 
-##### **Secret 2: GCP_WORKLOAD_IDENTITY_PROVIDER**
+##### **Secret 2: GCP_REGION**
+- Name: `GCP_REGION`
+- Value: Your preferred Cloud Run region
+- Recommended values:
+  - `asia-northeast1` (Tokyo, Japan)
+  - `asia-northeast2` (Osaka, Japan)
+  - `asia-southeast1` (Singapore)
+  - `us-central1` (Iowa, USA)
+  - `europe-west1` (Belgium)
+- Click **Add secret**
+
+##### **Secret 3: GCP_WORKLOAD_IDENTITY_PROVIDER**
 - Name: `GCP_WORKLOAD_IDENTITY_PROVIDER`
 - Value: Get this by running:
   ```bash
@@ -326,8 +337,9 @@ Add these secrets in order:
 
 ### 3. Verify All Secrets Are Added
 
-You should see 6 secrets listed:
+You should see 7 secrets listed:
 - ✅ GCP_PROJECT_ID
+- ✅ GCP_REGION
 - ✅ GCP_WORKLOAD_IDENTITY_PROVIDER
 - ✅ GCP_SERVICE_ACCOUNT
 - ✅ AEM_BASE_URL
@@ -411,7 +423,7 @@ Before deploying, ensure you have:
 
 - [ ] `service-account.json` file downloaded locally
 - [ ] File is gitignored (never committed)
-- [ ] GitHub Secrets configured (all 6 secrets)
+- [ ] GitHub Secrets configured (all 7 secrets including GCP_REGION)
 - [ ] GCP Secret Manager configured
 - [ ] Cloud Run service account has secret access
 - [ ] Workload Identity Federation set up (for GitHub Actions)
