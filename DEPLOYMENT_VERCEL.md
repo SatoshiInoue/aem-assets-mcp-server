@@ -45,6 +45,96 @@ vercel
    - **Install Command**: Auto-detected
 6. Click "Deploy"
 
+### Option 3: GitHub Actions (Automated CI/CD)
+
+Automatically deploy to Vercel whenever you push changes to `main` branch or manually trigger deployment.
+
+#### Setup Steps:
+
+1. **Get Vercel Credentials**
+
+```bash
+# Install Vercel CLI if not already installed
+npm install -g vercel
+
+# Login to Vercel
+vercel login
+
+# Link your project (run from project root)
+vercel link
+
+# This creates .vercel directory with:
+# - project.json (contains projectId)
+# - README.txt
+```
+
+2. **Get Your Vercel Organization ID**
+
+```bash
+# View your .vercel/project.json
+cat .vercel/project.json
+```
+
+You'll see something like:
+```json
+{
+  "orgId": "team_xxxxxxxxxxxxx",
+  "projectId": "prj_xxxxxxxxxxxxx"
+}
+```
+
+3. **Get Your Vercel Token**
+
+- Go to [Vercel Account Settings → Tokens](https://vercel.com/account/tokens)
+- Click "Create Token"
+- Name it: `GitHub Actions Deploy`
+- Set scope: Full Account (or select specific projects)
+- Click "Create"
+- Copy the token (you'll only see it once!)
+
+4. **Add GitHub Secrets**
+
+Go to your GitHub repository → Settings → Secrets and variables → Actions → New repository secret
+
+Add these three secrets:
+
+| Secret Name | Value | Where to Find |
+|-------------|-------|---------------|
+| `VERCEL_TOKEN` | `xxx...xxx` | From step 3 above |
+| `VERCEL_ORG_ID` | `team_xxx...` | From `.vercel/project.json` (`orgId`) |
+| `VERCEL_PROJECT_ID` | `prj_xxx...` | From `.vercel/project.json` (`projectId`) |
+
+5. **Configure Environment Variables in Vercel**
+
+The GitHub Action will use the environment variables already configured in your Vercel project. Make sure you've added them via:
+- Vercel Dashboard → Project → Settings → Environment Variables
+- Or via CLI: `vercel env add AEM_BASE_URL production`
+
+6. **Trigger Deployment**
+
+The workflow will automatically deploy when:
+- ✅ You push changes to `main` branch that affect:
+  - `rest-api/**`
+  - `shared/**`
+  - `vercel.json`
+  - `.github/workflows/deploy-vercel.yml`
+- ✅ You manually trigger it:
+  - Go to GitHub → Actions → "Deploy REST API to Vercel" → "Run workflow"
+
+#### Workflow Features:
+
+- ✅ Automatic deployment on push to `main`
+- ✅ Manual deployment via workflow_dispatch
+- ✅ Automatic testing after deployment
+- ✅ Deployment URL in action logs
+- ✅ PR comments with deployment URL (for PRs)
+
+#### View Deployment Status:
+
+1. Go to GitHub → Actions
+2. Click on the latest "Deploy REST API to Vercel" workflow run
+3. View logs and deployment URL
+
 ## 🔧 Configure Environment Variables
 
 After deployment, add environment variables:
@@ -56,23 +146,41 @@ After deployment, add environment variables:
 
 | Variable Name | Value | Environment |
 |---------------|-------|-------------|
-| `AEM_BASE_URL` | `https://author-p12345-e67890.adobeaemcloud.com/api/v1` | Production, Preview, Development |
-| `AEM_ACCESS_TOKEN` | Your AEM access token | Production, Preview, Development |
-| `AEM_ORG_ID` | `your_org_id@AdobeOrg` | Production, Preview, Development |
-| `AEM_CLIENT_ID` | Your AEM client ID | Production, Preview, Development |
+| `AEM_BASE_URL` | `https://author-p12345-e67890.adobeaemcloud.com` | Production, Preview, Development |
+| `AEM_CLIENT_ID` | Your OAuth Client ID (API Key) | Production, Preview, Development |
+| `AEM_CLIENT_SECRET` | Your OAuth Client Secret | Production, Preview, Development |
+| `AEM_SERVICE_ACCOUNT_JSON` | Paste entire service account JSON content | Production, Preview, Development |
+
+**Important Notes:**
+- `AEM_BASE_URL`: Do NOT include `/api/v1` or trailing slash
+- `AEM_SERVICE_ACCOUNT_JSON`: Paste the entire JSON file content (for JWT authentication with classic `/api/assets` API)
+- See [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) for how to obtain these credentials
 
 3. Click "Save"
 
 ### Via Vercel CLI
 
 ```bash
-vercel env add AEM_BASE_URL
-# Enter value when prompted
-# Select environments: Production, Preview, Development
+# Add base URL
+vercel env add AEM_BASE_URL production
+# Enter: https://author-p12345-e67890.adobeaemcloud.com
 
-vercel env add AEM_ACCESS_TOKEN
-vercel env add AEM_ORG_ID
-vercel env add AEM_CLIENT_ID
+# Add OAuth credentials
+vercel env add AEM_CLIENT_ID production
+# Enter your Client ID
+
+vercel env add AEM_CLIENT_SECRET production
+# Enter your Client Secret
+
+# Add JWT Service Account JSON
+vercel env add AEM_SERVICE_ACCOUNT_JSON production
+# Paste the entire JSON content from service-account.json
+```
+
+**Pro Tip:** For `AEM_SERVICE_ACCOUNT_JSON`, you can use:
+```bash
+cat service-account.json | pbcopy  # macOS - copies to clipboard
+# Then paste into Vercel CLI prompt
 ```
 
 ## 🎯 Deploy to Production

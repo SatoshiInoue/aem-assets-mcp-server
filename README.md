@@ -182,7 +182,7 @@ Visit `http://localhost:8000` to see the server info.
 
 See [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md) for detailed instructions.
 
-**Quick steps**:
+**Option A: Local Deployment (Fastest)**
 ```bash
 # Install Vercel CLI
 npm i -g vercel
@@ -199,6 +199,17 @@ vercel
 # Deploy to production
 vercel --prod
 ```
+
+**Option B: GitHub Actions (Automated CI/CD)**
+
+Set up once, then automatically deploy on every push to `main`:
+
+1. Get Vercel credentials (see [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md#option-3-github-actions-automated-cicd))
+2. Add GitHub Secrets:
+   - `VERCEL_TOKEN`
+   - `VERCEL_ORG_ID`
+   - `VERCEL_PROJECT_ID`
+3. Push to `main` or manually trigger workflow
 
 Your API will be available at: `https://your-project.vercel.app/api/mcp`
 
