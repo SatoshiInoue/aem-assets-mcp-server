@@ -43,9 +43,10 @@ class AEMAssetsClient:
         
         # JWT Service Account auth (for classic API)
         self.jwt_auth = None
-        if config.service_account_json_path and os.path.exists(config.service_account_json_path):
+        if config.service_account_json_path:
             try:
                 from app.jwt_auth import JWTServiceAccountAuth
+                # JWTServiceAccountAuth handles both file paths and JSON strings
                 self.jwt_auth = JWTServiceAccountAuth(config.service_account_json_path)
                 logger.info("JWT Service Account authentication initialized for classic API")
             except Exception as e:

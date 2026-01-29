@@ -56,8 +56,13 @@ async def lifespan(app: FastAPI):
     aem_client = AEMAssetsClient(config)
     
     # Log authentication methods available
-    if service_account_json and os.path.exists(service_account_json):
-        logger.info("✅ JWT Service Account auth available (for /api/assets)")
+    if service_account_json:
+        # Check if it's a file path or JSON string
+        if os.path.exists(service_account_json):
+            logger.info("✅ JWT Service Account auth available (from file: for /api/assets)")
+        else:
+            # It's a JSON string (Cloud Run environment)
+            logger.info("✅ JWT Service Account auth available (from JSON string: for /api/assets)")
     else:
         logger.warning("⚠️  No service account JSON - classic API (/api/assets) will use fallback")
     
