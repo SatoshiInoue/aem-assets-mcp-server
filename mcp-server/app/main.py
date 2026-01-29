@@ -27,8 +27,49 @@ logger = logging.getLogger(__name__)
 # Initialize FastMCP
 mcp = FastMCP("AEM Assets MCP Server")
 
-# Global AEM client (initialized on startup)
-aem_client: Optional[AEMAssetsClient] = None
+# Global AEM client - initialize immediately
+try:
+    logger.info("🚀 Initializing AEM Assets MCP Server...")
+    
+    # Get environment variables
+    base_url = os.getenv("AEM_BASE_URL")
+    client_id = os.getenv("AEM_CLIENT_ID")
+    client_secret = os.getenv("AEM_CLIENT_SECRET")
+    service_account_json = os.getenv("AEM_SERVICE_ACCOUNT_JSON")
+    
+    # Log environment status (without revealing secrets)
+    logger.info(f"📝 Environment check:")
+    logger.info(f"   AEM_BASE_URL: {'✅ Set' if base_url else '❌ Missing'}")
+    logger.info(f"   AEM_CLIENT_ID: {'✅ Set' if client_id else '❌ Missing'}")
+    logger.info(f"   AEM_CLIENT_SECRET: {'✅ Set' if client_secret else '❌ Missing'}")
+    logger.info(f"   AEM_SERVICE_ACCOUNT_JSON: {'✅ Set' if service_account_json else '❌ Missing'}")
+    
+    # Initialize AEM client
+    config = AEMConfig(
+        base_url=base_url,
+        client_id=client_id,
+        client_secret=client_secret,
+        service_account_json_path=service_account_json,
+    )
+    aem_client = AEMAssetsClient(config)
+    logger.info("✅ AEM client initialized successfully")
+    
+    # Log authentication methods available
+    if service_account_json:
+        if os.path.exists(service_account_json):
+            logger.info("✅ JWT Service Account auth available (from file: for /api/assets)")
+        else:
+            logger.info("✅ JWT Service Account auth available (from JSON string: for /api/assets)")
+    else:
+        logger.warning("⚠️  No service account JSON - classic API (/api/assets) will use fallback")
+    
+    logger.info("✅ OAuth Server-to-Server auth available (for /adobe/* endpoints)")
+    logger.info("✅ AEM Assets MCP Server is ready!")
+    
+except Exception as e:
+    logger.error(f"❌ Failed to initialize AEM client: {e}", exc_info=True)
+    logger.warning("⚠️  MCP server will start but AEM operations will fail")
+    aem_client = None
 
 
 @mcp.tool()
@@ -221,50 +262,35 @@ async def bulk_update_metadata(
 
 
 # Startup/Shutdown handlers
-@mcp.on_startup
-async def startup():
-    """Initialize AEM client on startup"""
-    global aem_client
-    
-    logger.info("🚀 Starting AEM Assets MCP Server...")
-    
-    # Get environment variables
-    service_account_json = os.getenv("AEM_SERVICE_ACCOUNT_JSON")
-    
-    config = AEMConfig(
-        base_url=os.getenv("AEM_BASE_URL"),
-        client_id=os.getenv("AEM_CLIENT_ID"),
-        client_secret=os.getenv("AEM_CLIENT_SECRET"),
-        service_account_json_path=service_account_json,
-    )
-    
-    aem_client = AEMAssetsClient(config)
-    
-    # Log authentication methods available
-    if service_account_json:
-        if os.path.exists(service_account_json):
-            logger.info("✅ JWT Service Account auth available (from file: for /api/assets)")
-        else:
-            logger.info("✅ JWT Service Account auth available (from JSON string: for /api/assets)")
+# Export the ASGI app for uvicorn
+# FastMCP might expose the app through different attributes
+# Try common patterns: app, asgi_app, _app, or the instance itself
+try:
+    # Try getting the ASGI app from common FastMCP properties
+    if hasattr(mcp, 'app'):
+        app = mcp.app
+        logger.info("✅ Using mcp.app")
+    elif hasattr(mcp, 'asgi_app'):
+        app = mcp.asgi_app
+        logger.info("✅ Using mcp.asgi_app")
+    elif hasattr(mcp, '_app'):
+        app = mcp._app
+        logger.info("✅ Using mcp._app")
     else:
-        logger.warning("⚠️  No service account JSON - classic API (/api/assets) will use fallback")
-    
-    logger.info("✅ OAuth Server-to-Server auth available (for /adobe/* endpoints)")
-    logger.info("✅ AEM Assets MCP Server is ready!")
-
-
-@mcp.on_shutdown
-async def shutdown():
-    """Close AEM client on shutdown"""
-    global aem_client
-    
-    logger.info("👋 Shutting down AEM Assets MCP Server...")
-    
-    if aem_client:
-        await aem_client.close()
-        logger.info("✅ AEM client closed")
+        # FastMCP instance itself might be callable as ASGI app
+        # when properly initialized with the run method
+        app = mcp
+        logger.info("✅ Using mcp instance directly")
+        logger.info(f"   Available attributes: {[attr for attr in dir(mcp) if not attr.startswith('_')]}")
+except Exception as e:
+    logger.error(f"❌ Failed to get ASGI app: {e}")
+    # Fallback: use mcp directly
+    app = mcp
 
 
 if __name__ == "__main__":
-    # Run with SSE transport for Cloud Run
-    mcp.run(transport="sse")
+    # For local testing
+    import uvicorn
+    port = int(os.getenv("PORT", 8080))
+    logger.info(f"🚀 Starting MCP server on 0.0.0.0:{port}")
+    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")

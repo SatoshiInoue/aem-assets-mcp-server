@@ -20,5 +20,6 @@ EXPOSE 8080
 # Set environment variable for port
 ENV PORT=8080
 
-# Run the MCP server
-CMD ["python", "-m", "app.main"]
+# Run the MCP server with uvicorn - use the app variable (FastMCP's ASGI app)
+# Cloud Run sets PORT environment variable (default 8080)
+CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --log-level info"]
