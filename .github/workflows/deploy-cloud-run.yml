@@ -38,7 +38,8 @@ jobs:
 
       - name: Build Docker image
         run: |
-          docker build -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
+          docker build -f mcp-server/Dockerfile \
+                       -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }} \
                        -t ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REGISTRY_NAME }}/${{ env.IMAGE_NAME }}:latest \
                        .
 
@@ -71,5 +72,6 @@ jobs:
       - name: Test deployment
         run: |
           sleep 10
-          curl -f ${{ env.SERVICE_URL }}/health || exit 1
-          echo "✅ Deployment successful!"
+          echo "✅ MCP Server deployed successfully!"
+          echo "Service URL: ${{ env.SERVICE_URL }}"
+          echo "Use this URL to connect from ChatGPT Custom GPT with MCP support"

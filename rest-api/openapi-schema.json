@@ -1,0 +1,108 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AEM Assets MCP Server",
+    "description": "API for managing Adobe Experience Manager Assets",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "https://your-vercel-url.vercel.app",
+      "description": "Replace with your actual Vercel deployment URL"
+    }
+  ],
+  "paths": {
+    "/api/mcp": {
+      "post": {
+        "operationId": "executeAEMTool",
+        "summary": "Execute an AEM Assets management tool",
+        "description": "Interact with Adobe Experience Manager Assets API to list folders, search assets, update metadata, and manage AEM content.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tool": {
+                    "type": "string",
+                    "description": "The tool to execute",
+                    "enum": [
+                      "list_folders",
+                      "list_published_assets",
+                      "search_assets",
+                      "list_assets_by_folder",
+                      "bulk_update_metadata",
+                      "list_assets_by_creator",
+                      "list_all_assets",
+                      "get_asset_details"
+                    ]
+                  },
+                  "arguments": {
+                    "type": "object",
+                    "description": "Tool-specific arguments. Use path for folders, query for search, folderPath for listing/bulk updates, assetId for single asset operations, metadata for updates, createdBy for creator filter.",
+                    "properties": {
+                      "path": {
+                        "type": "string",
+                        "description": "Folder path (for list_folders and list_all_assets). Example: /content/dam/"
+                      },
+                      "query": {
+                        "type": "string",
+                        "description": "Search query (for search_assets)"
+                      },
+                      "folderPath": {
+                        "type": "string",
+                        "description": "Folder path (for list_assets_by_folder and bulk_update_metadata for folder updates)"
+                      },
+                      "metadata": {
+                        "type": "object",
+                        "description": "Metadata key-value pairs (for bulk_update_metadata). Use with either assetId for single asset or folderPath for bulk updates.",
+                        "additionalProperties": true
+                      },
+                      "createdBy": {
+                        "type": "string",
+                        "description": "Creator username or email (for list_assets_by_creator)"
+                      },
+                      "assetId": {
+                        "type": "string",
+                        "description": "Asset path (for get_asset_details and bulk_update_metadata for single asset). Example: /content/dam/folder/image.jpg"
+                      },
+                      "limit": {
+                        "type": "integer",
+                        "description": "Maximum number of results to return (default: 100)",
+                        "default": 100
+                      }
+                    }
+                  }
+                },
+                "required": ["tool"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "result": {
+                      "description": "Result from the tool execution (array of objects or single object)"
+                    },
+                    "error": {
+                      "type": "string",
+                      "description": "Error message if the operation failed",
+                      "nullable": true
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

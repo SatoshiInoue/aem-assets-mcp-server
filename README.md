@@ -1,51 +1,97 @@
-# AEM Assets MCP Server
+# AEM Assets Server for AI Integrations
 
-A Model Context Protocol (MCP) server for Adobe Experience Manager (AEM) Assets Author API built with Python and FastAPI. Can be deployed to **Vercel (Phase 1)** or **Google Cloud Run (Phase 2)** and used with ChatGPT.
+A dual-implementation server for Adobe Experience Manager (AEM) Assets API:
+- **REST API** (`rest-api/`) - For ChatGPT Custom GPTs via Actions (FastAPI)
+- **MCP Server** (`mcp-server/`) - For ChatGPT Custom GPTs with MCP support (FastMCP)
+
+Both implementations share the same core AEM client logic and provide identical functionality.
+
+## 🏗️ Architecture
+
+```
+aem-assets-mcp-server/
+├── rest-api/              ← REST API implementation (Vercel)
+│   ├── app/              - FastAPI application
+│   ├── requirements.txt
+│   └── vercel.json
+├── mcp-server/            ← MCP Server implementation (Cloud Run)
+│   ├── app/              - FastMCP application
+│   ├── Dockerfile
+│   └── requirements.txt
+├── shared/                ← Common AEM client logic
+│   ├── aem_client.py     - AEM API client
+│   ├── jwt_auth.py       - JWT authentication
+│   ├── models.py         - Data models
+│   └── constants.py      - Configuration constants
+└── .github/workflows/    - CI/CD pipelines
+```
 
 ## 🚀 Features
 
-This MCP server provides tools to interact with AEM Assets:
+Both implementations provide identical tools to interact with AEM Assets:
 
 - **List folders** - Browse folders in your AEM Assets repository
-- **List published assets** - Find all assets that have been published
-- **Search assets** - Search for assets by keywords (e.g., "Electric Vehicle")
 - **List assets by folder** - Get all assets within a specific folder
+- **Get asset details** - Retrieve detailed information about a specific asset including metadata
+- **Update asset metadata** - Update metadata fields for individual assets
 - **Bulk update metadata** - Update metadata for all assets in a folder
-- **List assets by creator** - Find assets uploaded by a specific user
-- **Get asset details** - Retrieve detailed information about a specific asset
+
+## 🎯 Which Implementation Should I Use?
+
+| Feature | REST API (Vercel) | MCP Server (Cloud Run) |
+|---------|-------------------|------------------------|
+| **Target Platform** | ChatGPT Actions | ChatGPT with MCP support |
+| **Protocol** | HTTP REST | JSON-RPC over SSE |
+| **Deployment** | Vercel (serverless) | Google Cloud Run (containers) |
+| **Schema** | OpenAPI 3.0 | MCP Protocol |
+| **Best For** | Standard ChatGPT integrations | Native MCP clients (ChatGPT, Claude Desktop) |
+
+**Recommendation:** 
+- Use **REST API** if you're integrating with ChatGPT Custom GPTs via Actions (most common)
+- Use **MCP Server** if your ChatGPT supports native MCP protocol connections
 
 ## 📋 Prerequisites
 
-### General Requirements
+### AEM Access
 1. **Adobe Experience Manager Assets Author API Access**
-   - AEM base URL
-   - OAuth Server-to-Server credentials:
-     - Client ID (API Key)
+   - AEM base URL (e.g., `https://author-pXXXXXX-eXXXXXXX.adobeaemcloud.com`)
+   - **OAuth Server-to-Server credentials** (for modern `/adobe/*` APIs):
+     - Client ID
      - Client Secret
-     - Scopes
-   - See [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) for how to obtain these
+   - **JWT Service Account credentials** (for classic `/api/assets` API):
+     - Service Account JSON file with private key
+   - See [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) for detailed setup
 
-2. **Python 3.11+**
+### REST API Requirements
+- Python 3.12+
+- Vercel account (for deployment)
+- ChatGPT Plus/Pro with Custom GPTs
 
-### Phase 1 Requirements (Vercel)
-- Vercel account
-- ChatGPT Plus/Pro (to use MCP servers)
-
-### Phase 2 Requirements (Google Cloud Run)
+### MCP Server Requirements
+- Python 3.12+
+- Docker
 - Google Cloud Platform account
-- `gcloud` CLI installed
-- Terraform installed (for infrastructure as code)
-- Docker installed
+- `gcloud` CLI
 - GitHub account (for CI/CD)
 
 ## 🛠️ Tech Stack
 
-- **Python 3.11** - Core language
-- **FastAPI** - Modern async web framework
+### Shared Components
+- **Python 3.12** - Core language
 - **HTTPX** - Async HTTP client
 - **Pydantic** - Data validation
-- **OAuth Server-to-Server** - Automatic token refresh
+- **Dual Authentication**:
+  - OAuth Server-to-Server (modern AEM APIs)
+  - JWT Service Account (classic AEM APIs)
+
+### REST API Stack
+- **FastAPI** - Modern async web framework
+- **Vercel** - Serverless deployment
+
+### MCP Server Stack
+- **FastMCP** - MCP protocol implementation
 - **Docker** - Containerization
+- **Google Cloud Run** - Container hosting
 - **Terraform** - Infrastructure as Code
 - **GitHub Actions** - CI/CD
 
@@ -53,29 +99,44 @@ This MCP server provides tools to interact with AEM Assets:
 
 ```
 .
-├── app/
-│   ├── __init__.py           # Package initialization
-│   ├── main.py               # FastAPI application
-│   ├── aem_client.py         # AEM Assets API client
-│   └── models.py             # Pydantic models
-├── terraform/
-│   ├── main.tf               # Main Terraform configuration
-│   ├── variables.tf          # Terraform variables
+├── rest-api/                     # REST API Implementation (Vercel)
+│   ├── app/
+│   │   ├── __init__.py
+│   │   └── main.py              # FastAPI application
+│   ├── requirements.txt
+│   ├── vercel.json              # Vercel deployment config
+│   └── openapi-schema.json      # ChatGPT Actions schema
+├── mcp-server/                   # MCP Server Implementation (Cloud Run)
+│   ├── app/
+│   │   ├── __init__.py
+│   │   └── main.py              # FastMCP application
+│   ├── requirements.txt
+│   └── Dockerfile               # Container configuration
+├── shared/                       # Shared AEM Client Logic
+│   ├── __init__.py
+│   ├── aem_client.py            # AEM API client (OAuth + JWT)
+│   ├── jwt_auth.py              # JWT Service Account auth
+│   ├── models.py                # Pydantic data models
+│   └── constants.py             # Configuration constants
+├── terraform/                    # Infrastructure as Code
+│   ├── main.tf
+│   ├── variables.tf
 │   └── terraform.tfvars.example
-├── .github/workflows/
-│   ├── deploy-cloud-run.yml  # Cloud Run deployment
-│   ├── terraform-apply.yml   # Terraform workflow
-│   └── test.yml              # Testing workflow
-├── Dockerfile                # Docker configuration
-├── requirements.txt          # Python dependencies
-├── vercel.json              # Vercel configuration
-├── env.example              # Environment template
+├── .github/workflows/            # CI/CD Pipelines
+│   ├── deploy-cloud-run.yml     # MCP Server → Cloud Run
+│   ├── terraform-apply.yml      # Terraform deployment
+│   └── test.yml                 # Testing workflow
+├── vercel.json                  # Root Vercel config (points to rest-api/)
 └── README.md
 ```
 
 ## 🚀 Quick Start
 
-### Local Development
+Choose your implementation path:
+
+### Option A: REST API for ChatGPT Actions
+
+#### Local Development
 
 1. **Clone the repository**:
 ```bash
@@ -90,43 +151,34 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 
 3. **Install dependencies**:
 ```bash
-pip install -r requirements.txt
+pip install -r rest-api/requirements.txt
 ```
 
 4. **Configure environment**:
 ```bash
-# Option 1: Interactive setup (recommended)
-./create-env.sh
+# Copy example env
+cp rest-api/env.example .env
 
-# Option 2: Manual setup
-cp env.example .env
-nano .env  # Edit with your AEM credentials
+# Edit with your AEM credentials
+# Required:
+# - AEM_BASE_URL
+# - AEM_CLIENT_ID
+# - AEM_CLIENT_SECRET
+# - AEM_SERVICE_ACCOUNT_JSON (path to service-account.json)
+nano .env
 ```
 
-See [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) for how to get your OAuth credentials.
+See [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) for how to get your credentials.
 
-5. **Run locally**:
+5. **Run REST API locally**:
 ```bash
+cd rest-api
 uvicorn app.main:app --reload
 ```
 
 Visit `http://localhost:8000` to see the server info.
 
-### Docker Development
-
-```bash
-# Build image
-docker build -t aem-mcp-server .
-
-# Run container
-docker run -p 8080:8080 \
-  -e AEM_BASE_URL="https://author-p12345-e67890.adobeaemcloud.com" \
-  -e AEM_CLIENT_ID="your_client_id_here" \
-  -e AEM_CLIENT_SECRET="your_client_secret_here" \
-  aem-mcp-server
-```
-
-## 📦 Phase 1: Deploy to Vercel
+#### Deploy to Vercel
 
 See [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md) for detailed instructions.
 
@@ -135,27 +187,208 @@ See [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md) for detailed instructions.
 # Install Vercel CLI
 npm i -g vercel
 
-# Deploy
+# Deploy (from project root)
 vercel
 
-# Add environment variables in Vercel dashboard
+# Add environment variables via Vercel dashboard:
+# - AEM_BASE_URL
+# - AEM_CLIENT_ID  
+# - AEM_CLIENT_SECRET
+# - AEM_SERVICE_ACCOUNT_JSON (paste JSON content)
+
 # Deploy to production
 vercel --prod
 ```
 
 Your API will be available at: `https://your-project.vercel.app/api/mcp`
 
-## 🏗️ Phase 2: Deploy to Google Cloud Run
+Use the OpenAPI schema at `rest-api/openapi-schema.json` to configure ChatGPT Actions.
+
+---
+
+### Option B: MCP Server for Native MCP Support
+
+#### Local Development
+
+1. **Install MCP server dependencies**:
+```bash
+pip install -r mcp-server/requirements.txt
+```
+
+2. **Configure environment** (same as REST API):
+```bash
+cp rest-api/env.example .env
+nano .env  # Add your AEM credentials
+```
+
+3. **Run MCP server locally**:
+```bash
+cd mcp-server
+python -m app.main
+```
+
+The MCP server will start with SSE transport on port 8080.
+
+#### Deploy to Google Cloud Run
 
 See [DEPLOYMENT_CLOUDRUN.md](./DEPLOYMENT_CLOUDRUN.md) for detailed instructions.
 
-### Option 1: Using GitHub Actions (Recommended)
+**Quick steps using GitHub Actions**:
 
-1. **Set up GCP and GitHub Secrets**
-2. **Push to main branch** - Automatically deploys
-3. **Service URL** will be shown in Actions log
+1. **Set up GCP project and enable APIs**
+2. **Configure Workload Identity Federation** (see [CLOUD_RUN_SETUP_GUIDE.md](./CLOUD_RUN_SETUP_GUIDE.md))
+3. **Add GitHub Secrets**:
+   - `GCP_PROJECT_ID`
+   - `GCP_REGION`
+   - `GCP_WORKLOAD_IDENTITY_PROVIDER`
+   - `GCP_SERVICE_ACCOUNT`
+   - `AEM_BASE_URL`
+   - `AEM_CLIENT_ID`
+4. **Create GCP secrets**:
+   ```bash
+   echo -n "your_client_secret" | gcloud secrets create aem-client-secret --data-file=-
+   echo -n "$(cat service-account.json)" | gcloud secrets create aem-service-account-json --data-file=-
+   ```
+5. **Trigger deployment**:
+   - Go to GitHub Actions → "Deploy to Google Cloud Run" → "Run workflow"
 
-### Option 2: Using Terraform
+Your MCP server will be available at: `https://aem-assets-mcp-server-xxxxx.run.app`
+
+Connect from ChatGPT using the MCP server URL.
+
+---
+
+## 🧪 Testing
+
+### Test REST API
+
+```bash
+# List folders
+curl -X POST http://localhost:8000/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "list_folders", "arguments": {"path": "/"}}'
+
+# List assets in a folder
+curl -X POST http://localhost:8000/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "list_assets_by_folder", "arguments": {"folderPath": "/MyFolder"}}'
+```
+
+### Test MCP Server
+
+See [TESTING.md](./TESTING.md) for comprehensive testing guide including:
+- Direct AEM API testing
+- JWT token generation
+- MCP Inspector usage
+
+---
+
+## 🔧 Configuration
+
+Both implementations use the same environment variables:
+
+| Variable | Description | Required | Example |
+|----------|-------------|----------|---------|
+| `AEM_BASE_URL` | AEM Author instance URL | ✅ | `https://author-pXXXXXX.adobeaemcloud.com` |
+| `AEM_CLIENT_ID` | OAuth Client ID | ✅ | `a41e805f8c3042d3bba66ff1c05f1e94` |
+| `AEM_CLIENT_SECRET` | OAuth Client Secret | ✅ | `p8e-xxx...` |
+| `AEM_SERVICE_ACCOUNT_JSON` | JWT Service Account (file path or JSON string) | ✅ | `./service-account.json` |
+
+**API endpoints and scopes** are configured in `shared/constants.py`:
+- Modern API: `/adobe/assets`, `/adobe/folders` (OAuth)
+- Classic API: `/api/assets` (JWT)
+- IMS Token: `https://ims-na1.adobelogin.com/ims/token/v3`
+- Scopes: `openid,AdobeID,aem.assets.author,aem.folders`
+
+---
+
+## 📚 Documentation
+
+- [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) - How to obtain AEM credentials
+- [JWT_SETUP.md](./JWT_SETUP.md) - JWT Service Account setup
+- [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md) - REST API deployment to Vercel
+- [DEPLOYMENT_CLOUDRUN.md](./DEPLOYMENT_CLOUDRUN.md) - MCP Server deployment to Cloud Run
+- [CLOUD_RUN_SETUP_GUIDE.md](./CLOUD_RUN_SETUP_GUIDE.md) - Detailed Cloud Run setup
+- [TESTING.md](./TESTING.md) - Testing guide
+- [LOCAL_DEVELOPMENT.md](./LOCAL_DEVELOPMENT.md) - Local development tips
+
+---
+
+## 🤝 ChatGPT Integration
+
+### For REST API (ChatGPT Actions)
+1. Create a Custom GPT in ChatGPT
+2. Go to "Configure" → "Actions"
+3. Import the schema from `rest-api/openapi-schema.json`
+4. Set the server URL to your Vercel deployment
+5. Test with prompts like:
+   - "List all folders in /content/dam/"
+   - "Show me assets in the MyFolder folder"
+   - "Update the description for asset XYZ"
+
+### For MCP Server (Native MCP)
+1. Create a Custom GPT in ChatGPT with MCP support
+2. Configure MCP connection with your Cloud Run URL
+3. The MCP server will automatically expose all tools
+4. Test with the same natural language prompts
+
+---
+
+## 🔐 Security Notes
+
+- Never commit `.env` files or `service-account.json`
+- Use GitHub Secrets for CI/CD
+- Use GCP Secret Manager for Cloud Run
+- Use Vercel environment variables for Vercel deployment
+- Rotate credentials regularly
+- Review AEM user permissions
+
+---
+
+## 🐛 Troubleshooting
+
+### Common Issues
+
+**Issue: JWT authentication not working in Cloud Run**
+- **Cause**: `AEM_SERVICE_ACCOUNT_JSON` must contain JSON string, not file path
+- **Fix**: Create secret with JSON content: `gcloud secrets create aem-service-account-json --data-file=service-account.json`
+
+**Issue: Permission denied on Secret Manager**
+- **Cause**: Cloud Run service account lacks permissions
+- **Fix**: Grant `roles/secretmanager.secretAccessor`:
+  ```bash
+  gcloud secrets add-iam-policy-binding aem-client-secret \
+    --member="serviceAccount:PROJECT_NUMBER-compute@developer.gserviceaccount.com" \
+    --role="roles/secretmanager.secretAccessor"
+  ```
+
+**Issue: 403 Forbidden from AEM**
+- **Cause**: Incorrect authentication or insufficient permissions
+- **Fix**: Verify credentials, check AEM user has correct Product Profile (AEM Administrators)
+
+**Issue: Vercel deployment fails**
+- **Cause**: Path issues after restructure
+- **Fix**: Ensure `vercel.json` points to `rest-api/app/main.py`
+
+See [TESTING.md](./TESTING.md) for more troubleshooting steps.
+
+---
+
+## 📝 License
+
+MIT License - See LICENSE file for details
+
+---
+
+## 🙏 Acknowledgments
+
+- Adobe Experience Manager Assets API
+- FastAPI and FastMCP teams
+- Model Context Protocol specification
+
+---
+
+## Option 2: Using Terraform
 
 ```bash
 cd terraform
@@ -180,279 +413,6 @@ terraform apply
 # Build and tag
 docker build -t gcr.io/YOUR_PROJECT/aem-mcp-server .
 
-# Push to Container Registry
-docker push gcr.io/YOUR_PROJECT/aem-mcp-server
-
-# Deploy to Cloud Run
-gcloud run deploy aem-assets-mcp-server \
-  --image gcr.io/YOUR_PROJECT/aem-mcp-server \
-  --platform managed \
-  --region us-central1 \
-  --allow-unauthenticated
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-Create a `.env` file with:
-
-```env
-# AEM Instance
-AEM_BASE_URL=https://author-p12345-e67890.adobeaemcloud.com
-
-# OAuth Server-to-Server Credentials
-AEM_CLIENT_ID=your_client_id_here
-AEM_CLIENT_SECRET=your_client_secret_here
-```
-
-### Get AEM Credentials
-
-**Quick Setup:**
-```bash
-./create-env.sh  # Interactive credential setup
-```
-
-**Manual Setup:**
-
-See [GET_CREDENTIALS.md](./GET_CREDENTIALS.md) for detailed instructions.
-
-**Summary:**
-1. Go to [Adobe Developer Console](https://developer.adobe.com/console)
-2. Create/select project
-3. Add "AEM Assets Author API"
-4. Configure "OAuth Server-to-Server" authentication
-5. Copy Client ID and Client Secret
-6. Copy Scopes from the credential page
-
-**Key Benefits:**
-- ✅ Automatic token refresh (every ~1 hour)
-- ✅ No manual token management
-- ✅ Production-ready authentication
-- ✅ Based on [Adobe's OAuth S2S guide](https://experienceleague.adobe.com/en/docs/experience-manager-learn/cloud-service/aem-apis/openapis/invoke-api-using-oauth-s2s)
-
-## 🤖 Connect to ChatGPT
-
-See [CHATGPT_SETUP.md](./CHATGPT_SETUP.md) for complete integration guide.
-
-**Quick summary**:
-1. Create Custom GPT in ChatGPT
-2. Add Action with OpenAPI schema
-3. Point to your deployed URL
-4. Test with natural language prompts
-
-## 💬 Usage Examples
-
-Once connected to ChatGPT:
-
-```
-✅ "List all the folders in the root directory"
-✅ "Show me all published assets"
-✅ "Find assets related to Electric Vehicle"
-✅ "Update all assets in /content/dam/products with jancode: ABCDEFG"
-✅ "List all assets uploaded by user@example.com"
-```
-
-## 🔌 API Reference
-
-### Endpoints
-
-- `GET /` - Server information
-- `GET /api/mcp` - Server information
-- `POST /api/mcp` - Execute MCP tool
-- `GET /health` - Health check
-
-### Available Tools
-
-#### 1. `list_folders`
-```json
-{
-  "tool": "list_folders",
-  "arguments": {
-    "path": "/content/dam"
-  }
-}
-```
-
-#### 2. `list_published_assets`
-```json
-{
-  "tool": "list_published_assets",
-  "arguments": {
-    "limit": 50
-  }
-}
-```
-
-#### 3. `search_assets`
-```json
-{
-  "tool": "search_assets",
-  "arguments": {
-    "query": "Electric Vehicle",
-    "limit": 100
-  }
-}
-```
-
-#### 4. `list_assets_by_folder`
-```json
-{
-  "tool": "list_assets_by_folder",
-  "arguments": {
-    "folderPath": "/content/dam/products"
-  }
-}
-```
-
-#### 5. `bulk_update_metadata`
-```json
-{
-  "tool": "bulk_update_metadata",
-  "arguments": {
-    "folderPath": "/content/dam/products",
-    "metadata": {
-      "jancode": "ABCDEFG",
-      "category": "Electronics"
-    }
-  }
-}
-```
-
-#### 6. `list_assets_by_creator`
-```json
-{
-  "tool": "list_assets_by_creator",
-  "arguments": {
-    "createdBy": "user@example.com",
-    "limit": 50
-  }
-}
-```
-
-#### 7. `list_all_assets`
-```json
-{
-  "tool": "list_all_assets",
-  "arguments": {
-    "path": "/content/dam",
-    "limit": 200
-  }
-}
-```
-
-#### 8. `get_asset_details`
-```json
-{
-  "tool": "get_asset_details",
-  "arguments": {
-    "assetId": "urn:aaid:aem:12345"
-  }
-}
-```
-
-## 🧪 Testing
-
-### Manual Testing
-```bash
-# Test health endpoint
-curl http://localhost:8000/health
-
-# Test tool call
-curl -X POST http://localhost:8000/api/mcp \
-  -H "Content-Type: application/json" \
-  -d '{
-    "tool": "list_folders",
-    "arguments": {"path": "/"}
-  }'
-```
-
-### Run Tests (when available)
-```bash
-pytest tests/ -v
-```
-
-## 🔐 Security
-
-- ✅ Environment variables for credentials
-- ✅ CORS configured for API access
-- ✅ Secret Manager for Cloud Run
-- ✅ Service Account with minimal permissions
-- ✅ HTTPS enforced
-
-**Important**: 
-- Never commit `.env` or `terraform.tfvars`
-- Rotate AEM tokens regularly
-- Use Workload Identity Federation for GitHub Actions
-- Restrict Cloud Run access as needed
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-**Import errors in FastAPI**:
-```bash
-pip install --upgrade -r requirements.txt
-```
-
-**Docker build fails**:
-```bash
-# Check Docker is running
-docker ps
-
-# Build with no cache
-docker build --no-cache -t aem-mcp-server .
-```
-
-**Terraform errors**:
-```bash
-# Re-initialize
-cd terraform
-rm -rf .terraform
-terraform init
-```
-
-**Cloud Run deployment fails**:
-- Check Secret Manager has correct values
-- Verify service account permissions
-- Check Artifact Registry has image
-- Review Cloud Run logs
-
-## 📚 Additional Documentation
-
-- [DEPLOYMENT_VERCEL.md](./DEPLOYMENT_VERCEL.md) - Phase 1 deployment guide
-- [DEPLOYMENT_CLOUDRUN.md](./DEPLOYMENT_CLOUDRUN.md) - Phase 2 deployment guide
-- [CHATGPT_SETUP.md](./CHATGPT_SETUP.md) - ChatGPT integration guide
-- [AEM Assets API Docs](https://developer.adobe.com/experience-cloud/experience-manager-apis/api/stable/assets/author/)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch
-3. Make changes
-4. Test thoroughly
-5. Submit pull request
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 🔗 Resources
-
-- [FastAPI Documentation](https://fastapi.tiangolo.com/)
-- [Google Cloud Run](https://cloud.google.com/run)
-- [Terraform Documentation](https://www.terraform.io/docs)
-- [Adobe Developer Console](https://developer.adobe.com/console)
-- [Model Context Protocol](https://modelcontextprotocol.io/)
-
-## 💡 Tips
-
-1. **Start with Phase 1** (Vercel) for quick testing
-2. **Use Terraform** for reproducible infrastructure
-3. **Monitor logs** in Cloud Run console
-4. **Set up alerts** for production deployments
-5. **Use Secret Manager** for all sensitive data
-
 ---
 
-**Need Help?** Check the documentation files or open an issue on GitHub.
+Made with ❤️ for AEM + AI Integration

@@ -7,12 +7,15 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
-from app.models import (
+import sys
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+
+from shared.models import (
     ToolRequest,
     ToolResponse,
     ServerInfo,
 )
-from app.aem_client import AEMAssetsClient, AEMConfig
+from shared.aem_client import AEMAssetsClient, AEMConfig
 
 # Load environment variables
 load_dotenv()
