@@ -40,8 +40,9 @@ Choose one of three deployment methods:
 ### Step 1: Set Up Google Cloud Project
 
 ```bash
-# Set your project ID
+# Set your project ID and region
 export PROJECT_ID="your-gcp-project-id"
+export REGION="asia-northeast1"  # Change to your preferred region
 
 # Set project
 gcloud config set project $PROJECT_ID
@@ -58,7 +59,7 @@ gcloud services enable iamcredentials.googleapis.com
 ```bash
 gcloud artifacts repositories create aem-mcp-images \
   --repository-format=docker \
-  --location=us-central1 \
+  --location=$REGION \
   --description="Docker images for AEM MCP Server"
 ```
 
@@ -184,7 +185,7 @@ After successful deployment:
 
 ```bash
 gcloud run services describe aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --format 'value(status.url)'
 ```
 
@@ -216,7 +217,7 @@ nano terraform.tfvars
 Example `terraform.tfvars`:
 ```hcl
 project_id        = "my-gcp-project"
-region            = "us-central1"
+region            = "asia-northeast1"  # Change to your preferred region
 service_name      = "aem-assets-mcp-server"
 image_tag         = "latest"
 min_instances     = 0
@@ -233,13 +234,13 @@ aem_client_id     = "your_aem_client_id"
 
 ```bash
 # Build image
-docker build -t us-central1-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest .
+docker build -t $REGION-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest .
 
 # Configure Docker auth
-gcloud auth configure-docker us-central1-docker.pkg.dev
+gcloud auth configure-docker $REGION-docker.pkg.dev
 
 # Push image
-docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest
+docker push $REGION-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest
 ```
 
 ### Step 4: Deploy with Terraform
@@ -271,8 +272,8 @@ terraform output service_account_email
 
 ```bash
 # Make code changes, rebuild image
-docker build -t us-central1-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest .
-docker push us-central1-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest
+docker build -t $REGION-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest .
+docker push $REGION-docker.pkg.dev/YOUR_PROJECT_ID/aem-mcp-images/aem-mcp-server:latest
 
 # Redeploy (Terraform will detect image change)
 terraform apply
@@ -293,7 +294,7 @@ terraform destroy
 ```bash
 # Set variables
 export PROJECT_ID="your-gcp-project-id"
-export REGION="us-central1"
+export REGION="asia-northeast1"  # Change to your preferred region
 
 # Build image
 docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/aem-mcp-images/aem-mcp-server:latest .
@@ -340,7 +341,7 @@ gcloud run services describe aem-assets-mcp-server \
 
 ```bash
 SERVICE_URL=$(gcloud run services describe aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --format 'value(status.url)')
 
 curl $SERVICE_URL/health
@@ -383,7 +384,7 @@ hey -n 1000 -c 10 $SERVICE_URL/health
 
 ```bash
 gcloud run services logs read aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --limit 50
 ```
 
@@ -429,13 +430,13 @@ Key metrics to monitor:
 ```bash
 # Remove public access
 gcloud run services remove-iam-policy-binding aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --member="allUsers" \
   --role="roles/run.invoker"
 
 # Add specific user
 gcloud run services add-iam-policy-binding aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --member="user:email@example.com" \
   --role="roles/run.invoker"
 ```
@@ -447,12 +448,12 @@ For private AEM instances:
 ```bash
 # Create VPC connector
 gcloud compute networks vpc-access connectors create aem-connector \
-  --region us-central1 \
+  --region $REGION \
   --subnet SUBNET_NAME
 
 # Update Cloud Run to use connector
 gcloud run services update aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --vpc-connector aem-connector
 ```
 
@@ -535,7 +536,7 @@ docker build --no-cache -t your-image .
 **Solution**:
 ```bash
 # Check logs
-gcloud run services logs read aem-assets-mcp-server --region us-central1
+gcloud run services logs read aem-assets-mcp-server --region $REGION
 
 # Common issues:
 # - Missing secrets in Secret Manager
@@ -605,7 +606,7 @@ resources {
 
 ```bash
 gcloud run services update aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --concurrency 80  # Max 80 requests per instance
 ```
 
@@ -628,7 +629,7 @@ git push origin main
 
 ```bash
 gcloud run services update aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --set-env-vars="NEW_VAR=value"
 ```
 
@@ -646,11 +647,11 @@ echo -n "new_token_value" | gcloud secrets versions add aem-access-token \
 
 ```bash
 # List revisions
-gcloud run revisions list --service aem-assets-mcp-server --region us-central1
+gcloud run revisions list --service aem-assets-mcp-server --region $REGION
 
 # Rollback to specific revision
 gcloud run services update-traffic aem-assets-mcp-server \
-  --region us-central1 \
+  --region $REGION \
   --to-revisions REVISION_NAME=100
 ```
 
