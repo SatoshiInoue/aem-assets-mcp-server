@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "aem-assets": {
+      "name": "AEM Assets",
+      "description": "Adobe Experience Manager Assets API",
+      "url": "https://aem-assets-mcp-server-3asyfvcagq-an.a.run.app",
+      "transport": "sse",
+      "enabled": true
+    }
+  }
+}

@@ -14,12 +14,12 @@ COPY mcp-server/app/ /app/app/
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose port for SSE transport
+# Allow statements and log messages to immediately appear in the logs
+ENV PYTHONUNBUFFERED=1
+
+# Expose port
 EXPOSE 8080
 
-# Set environment variable for port
-ENV PORT=8080
-
-# Run the MCP server with uvicorn - use the app variable (FastMCP's ASGI app)
-# Cloud Run sets PORT environment variable (default 8080)
-CMD ["sh", "-c", "uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8080} --log-level info"]
+# Run the MCP server directly with Python (FastMCP has built-in server)
+# This follows the official Cloud Run MCP server pattern
+CMD ["python", "-m", "app.main"]

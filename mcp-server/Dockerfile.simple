@@ -1,0 +1,18 @@
+# Simple test Dockerfile - just like the blog
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install just fastmcp
+RUN pip install --no-cache-dir fastmcp==0.2.0
+
+# Copy only the test file
+COPY mcp-server/app/test_simple.py /app/test_simple.py
+
+# Allow statements and log messages to immediately appear in the logs
+ENV PYTHONUNBUFFERED=1
+
+EXPOSE 8080
+
+# Run the simple test server
+CMD ["python", "test_simple.py"]

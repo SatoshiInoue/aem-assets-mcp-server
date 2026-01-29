@@ -1,5 +1,6 @@
 """FastMCP Server for AEM Assets - Model Context Protocol Implementation"""
 
+import asyncio
 import os
 import sys
 import logging
@@ -20,7 +21,7 @@ load_dotenv()
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    format='[%(levelname)s] %(asctime)s - %(name)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
@@ -261,36 +262,34 @@ async def bulk_update_metadata(
     }
 
 
-# Startup/Shutdown handlers
-# Export the ASGI app for uvicorn
-# FastMCP might expose the app through different attributes
-# Try common patterns: app, asgi_app, _app, or the instance itself
-try:
-    # Try getting the ASGI app from common FastMCP properties
-    if hasattr(mcp, 'app'):
-        app = mcp.app
-        logger.info("✅ Using mcp.app")
-    elif hasattr(mcp, 'asgi_app'):
-        app = mcp.asgi_app
-        logger.info("✅ Using mcp.asgi_app")
-    elif hasattr(mcp, '_app'):
-        app = mcp._app
-        logger.info("✅ Using mcp._app")
-    else:
-        # FastMCP instance itself might be callable as ASGI app
-        # when properly initialized with the run method
-        app = mcp
-        logger.info("✅ Using mcp instance directly")
-        logger.info(f"   Available attributes: {[attr for attr in dir(mcp) if not attr.startswith('_')]}")
-except Exception as e:
-    logger.error(f"❌ Failed to get ASGI app: {e}")
-    # Fallback: use mcp directly
-    app = mcp
+@mcp.tool()
+def add(a: int, b: int) -> int:
+    """Simple test tool - add two numbers together.
+    
+    Args:
+        a: The first number.
+        b: The second number.
+    
+    Returns:
+        The sum of the two numbers.
+    """
+    logger.info(f">>> Tool: 'add' called with numbers '{a}' and '{b}'")
+    result = a + b
+    logger.info(f"<<< Result: {result}")
+    return result
 
 
 if __name__ == "__main__":
-    # For local testing
-    import uvicorn
     port = int(os.getenv("PORT", 8080))
-    logger.info(f"🚀 Starting MCP server on 0.0.0.0:{port}")
-    uvicorn.run(app, host="0.0.0.0", port=port, log_level="info")
+    logger.info(f"🚀 MCP server starting on 0.0.0.0:{port}")
+    logger.info(f"📡 Transport: streamable-http")
+    
+    # Use FastMCP's built-in server like in the blog post
+    # This is the correct way according to official Cloud Run MCP docs
+    asyncio.run(
+        mcp.run_async(
+            transport="streamable-http",
+            host="0.0.0.0",
+            port=port,
+        )
+    )
