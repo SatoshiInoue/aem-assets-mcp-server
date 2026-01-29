@@ -22,12 +22,17 @@ class Asset(BaseModel):
     path: str
     name: str
     title: Optional[str] = None
+    description: Optional[str] = None
     metadata: Dict[str, Any] = {}
     asset_type: Optional[str] = None
     mime_type: Optional[str] = None
+    size: Optional[int] = None
+    width: Optional[int] = None
+    height: Optional[int] = None
     published: bool = False
     created_by: Optional[str] = None
     created_at: Optional[str] = None
+    modified_by: Optional[str] = None
     modified_at: Optional[str] = None
 
 
@@ -37,7 +42,9 @@ class Folder(BaseModel):
     path: str
     name: str
     title: Optional[str] = None
+    created_by: Optional[str] = None
     created_at: Optional[str] = None
+    modified_by: Optional[str] = None
     modified_at: Optional[str] = None
 
 
